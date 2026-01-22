@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riskhanterare - Nextcloud/Hubs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>📊 Riskhanterare</h1>
+                <p class="subtitle">Hantera organisatoriska risker enligt riskregistret</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="newRiskBtn">+ Ny risk</button>
+                <a href="/matrix" class="btn btn-secondary">📊 Riskmatris</a>
+                <button class="btn btn-secondary" id="exportBtn">📥 Exportera CSV</button>
+            </div>
+        </header>
+
+        <!-- Filtersektion -->
+        <section class="filters-section">
+            <div class="filter-group">
+                <label for="categoryFilter">Filtrera efter kategori:</label>
+                <select id="categoryFilter" class="filter-select">
+                    <option value="Alla">Alla kategorier</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="searchInput">Sök:</label>
+                <input type="text" id="searchInput" class="search-input" placeholder="Sök i titel eller beskrivning...">
+            </div>
+            <div class="filter-group">
+                <label for="statusFilter">Status:</label>
+                <select id="statusFilter" class="filter-select">
+                    <option value="">Alla</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- Statistik -->
+        <section class="stats-section">
+            <div class="stat-card">
+                <div class="stat-value" id="totalRisks">0</div>
+                <div class="stat-label">Totalt risker</div>
+            </div>
+            <div class="stat-card stat-high">
+                <div class="stat-value" id="highRisks">0</div>
+                <div class="stat-label">Höga risker</div>
+            </div>
+            <div class="stat-card stat-medium">
+                <div class="stat-value" id="mediumRisks">0</div>
+                <div class="stat-label">Medelstora risker</div>
+            </div>
+            <div class="stat-card stat-low">
+                <div class="stat-value" id="lowRisks">0</div>
+                <div class="stat-label">Låga risker</div>
+            </div>
+        </section>
+
+        <!-- Risklista -->
+        <section class="risks-section">
+            <div id="risksContainer" class="risks-container">
+                <div class="loading">Laddar risker...</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal för ny/redigera risk -->
+    <div id="riskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Ny risk</h2>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="riskForm" class="risk-form">
+                <!-- Grundinfo sektion -->
+                <fieldset class="form-section">
+                    <legend>Grundinformation</legend>
+                    
+                    <div class="form-group">
+                        <label for="riskTitle">Titel *</label>
+                        <input type="text" id="riskTitle" name="title" required placeholder="Kortfattad benämning på risken">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="riskCategory">Kategori *</label>
+                        <select id="riskCategory" name="category" required>
+                            <option value="">Välj kategori...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="riskDescription">Detaljerad beskrivning</label>
+                        <textarea id="riskDescription" name="description" rows="4" placeholder="Beskriv risken, sammanhanget och potentiella orsaker..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="riskDate">Identifieringsdatum</label>
+                        <input type="date" id="riskDate" name="created_date">
+                    </div>
+                </fieldset>
+
+                <!-- Riskbedömning sektion -->
+                <fieldset class="form-section">
+                    <legend>Riskbedömning</legend>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="riskProbability">Sannolikhet *</label>
+                            <select id="riskProbability" name="probability" required onchange="updateRiskValue()">
+                                <option value="">Välj...</option>
+                                <option value="1">1 - Mycket låg</option>
+                                <option value="2">2 - Låg</option>
+                                <option value="3">3 - Medel</option>
+                                <option value="4">4 - Hög</option>
+                                <option value="5">5 - Mycket hög</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="riskConsequence">Konsekvens *</label>
+                            <select id="riskConsequence" name="consequence" required onchange="updateRiskValue()">
+                                <option value="">Välj...</option>
+                                <option value="1">1 - Obetydlig</option>
+                                <option value="2">2 - Låg</option>
+                                <option value="3">3 - Medel</option>
+                                <option value="4">4 - Hög</option>
+                                <option value="5">5 - Katastrofal</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group risk-value-display">
+                        <label>Riskvärde</label>
+                        <div class="risk-value-box">
+                            <div class="risk-value" id="riskValueDisplay">-</div>
+                            <div class="risk-level" id="riskLevelDisplay">-</div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- Ansvar & Åtgärd sektion -->
+                <fieldset class="form-section">
+                    <legend>Ansvar & Åtgärd</legend>
+
+                    <div class="form-group">
+                        <label for="riskOwner">Riskägare/Ansvarig</label>
+                        <input type="text" id="riskOwner" name="owner" placeholder="Ange ansvarig person/roll">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="riskMitigation">Åtgärdsplan/Mitigering</label>
+                        <textarea id="riskMitigation" name="mitigation" rows="4" placeholder="Beskriv åtgärder för att minska sannolikhet eller konsekvens..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="riskStatus">Status *</label>
+                        <select id="riskStatus" name="status" required>
+                            <option value="Ny">Ny</option>
+                            <option value="Under behandling">Under behandling</option>
+                            <option value="Stängd">Stängd</option>
+                        </select>
+                    </div>
+                </fieldset>
+
+                <!-- Knappar -->
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Spara risk</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Detaljvy modal -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content modal-detail">
+            <div class="modal-header">
+                <h2 id="detailTitle">Riskdetaljer</h2>
+                <button class="modal-close" id="closeDetailBtn">&times;</button>
+            </div>
+            <div class="modal-body" id="detailBody">
+                <!-- Fylls av JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeDetailFooterBtn">Stäng</button>
+                <button class="btn btn-primary" id="editDetailBtn">Redigera</button>
+                <button class="btn btn-danger" id="deleteDetailBtn">Ta bort</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
